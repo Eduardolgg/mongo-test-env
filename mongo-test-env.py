@@ -31,11 +31,11 @@ defaultPort = 27017
 
 # TODO: Too dark, change
 parameters = [
-        { "name" : "Number of replica sets in the cluster", "option": "--tReplicaSetNumber", "value": 2, "single": False },
-        { "name": "Replica Set Size", "option": "--tReplicaSetSize", "value": 2 , "single": False },
+	{ "name" : "Number of replica sets in the cluster", "option": "--tReplicaSetNumber", "value": 2, "single": False },
+	{ "name": "Replica Set Size", "option": "--tReplicaSetSize", "value": 2 , "single": False },
 	{ "name": "Replica set name prefix", "option": "--tReplSet", "value": "rpl_" , "comment": "arg is <setname>[/<optionalseedhostlist>]", "single": False },
-        { "name": "Arviters per repica set", "option": "--tArviters", "value": 1, "single": False },
-        { "name": "Shards Routers", "option": "--tRouters", "value": 2, "single": False },
+	{ "name": "Arviters per repica set", "option": "--tArviters", "value": 1, "single": False },
+	{ "name": "Shards Routers", "option": "--tRouters", "value": 2, "single": False },
 	{ "name": "Config Servers", "option": "--tConfigServers", "value": 3, "single": False },
 	{ "name": "Default connection port", "option": "--port", "value": defaultPort, "comment": "specify port number - 27017 by default", "single": False },
 	{ "name": "Database location", "option": "--tDBRootPath", "value": "./data", "comment": "", "single": False },
@@ -47,9 +47,9 @@ parameters = [
 ]
 
 def main(argv):
-        if (len(argv) < 1):
-                printUsage()
-                return
+	if (len(argv) < 1):
+		printUsage()
+		return
 
 	initParameters(argv)
 
@@ -112,6 +112,7 @@ def startConfigServers():
 		configServersString += getHostname() + ":" + newPort + ","
 		command = "mongod --configsvr --dbpath " + dbPath + " --port " + newPort + " --fork --logappend --logpath " + logPathAndPrefix + str(i)
 		runCommand(command)
+
 	configServersString = configServersString[:len(configServersString)-1]
 
 
@@ -160,16 +161,16 @@ def startMongodServer(dbPath, logFile, replicaSetName, port):
 #        return serialParams
 
 def initParameters(argv):
-        for param in parameters:
-                try:
-                        index = argv.index(param["option"])
+	for param in parameters:
+		try:
+			index = argv.index(param["option"])
 			if (param["single"]):
 				param["value"] = ""
 			else:
-	                        param["value"] = argv[index + 1]
-                except Exception, e:
-                        # Parameter not found: Keep the default.
-                        pass
+				param["value"] = argv[index + 1]
+		except Exception, e:
+			# Parameter not found: Keep the default.
+			pass
 
 def getParameterValue(option):
 	for param in parameters:

@@ -14,7 +14,7 @@ Or if you just want the commands to execute
 
 > $ ./mongo-test-env.py --tReplicaSetNumber 6 --debug
 
-### The complex way
+### The hard way
 
 Get commands
 > $ ./mongo-test-env.py --tConfigServers 3 --tDBRootPath ./data --tLogPath ./logs --tLogFilesPrefix "log_" --tReplSet "rpl_" --tReplicaSetNumber 6 --tReplicaSetSize 2 --tArviters 1 --tRouters 2 --oplogSize 5 --debug
