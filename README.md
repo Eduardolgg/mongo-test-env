@@ -22,6 +22,3 @@ Get commands
 Start servers
 > $ ./mongo-test-env.py --configServers 3 --dbRootPath ./data --logPath ./logs --logFilesPrefix "log_" --replSet "rpl_" --replicaSetNumber 6 --replicaSetSize 2 --arviters 1 --routers 2 --rs-options "--oplogSize 5"
 
-
-# TODO: Auto config servers... Coming soon :)
-

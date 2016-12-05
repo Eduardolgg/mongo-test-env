@@ -24,6 +24,7 @@ import sys
 import socket
 import pymongo
 from pymongo import MongoClient
+from pymongo.errors import *
 
 serverPortCounter = None
 configServersString = ""
@@ -71,8 +72,10 @@ def main(argv):
 	checkAndCreateDBRootDir()
 	checkAndCreateLogRootDir()
 	startConfigServers()
-	startReplicaSets(dbRootPath, logPath, logFilePrefix, replicaSetNamePrefix, replicaSets, replicaSetSize, arbiters, replicaSetOptions)
+	replicaSetInfo = startReplicaSets(dbRootPath, logPath, logFilePrefix, replicaSetNamePrefix, replicaSets, replicaSetSize, arbiters, replicaSetOptions)
 	startShardRouters(configServersString, logPath, logFilePrefix, routerOptions)
+
+	startAutoConf(replicaSetInfo)
 
 def checkAndCreateDBRootDir():
 	rootDirectory = getParameterValue("--dbRootPath")
@@ -123,21 +126,29 @@ def startConfigServers():
 
 
 def startReplicaSets(dbRootPath, logPath, logFilePrefix, replicaSetNamePrefix, replicaSets, replicaSetSize, replicaSetArbiters, replicaSetOptions):
+	replicaSetInfo = []
 	for suit in xrange(1, int(replicaSets) + 1):
 		replicaSetName = replicaSetNamePrefix + str(suit)
-		#TODO: Refactor
+		serverCount = 0
+		replicaSet_n_info = {"_id": replicaSetName, "members": [] }
 		for server in xrange(1, int(replicaSetSize) + 1):
 			port = str(getFreePortNumber())
 			dbPath = dbRootPath + "/" + replicaSetNamePrefix + "replica_" + "suit_" + str(suit) + "_server_" + str(server)
 			checkAndCreateDir(dbPath)
 			logFile = logPath + "/" + logFilePrefix + "replica_" + "suit_" + str(suit) + "_server_" + str(server)
 			startMongodServer(dbPath, logFile, replicaSetName, port, replicaSetOptions)
+			replicaSet_n_info["members"].append({ "_id": serverCount, "host": getHostname() + ":" + port})
+			serverCount += 1
 		for server in xrange(1, int(replicaSetArbiters) + 1):
 			port = str(getFreePortNumber())
 			dbPath = dbRootPath + "/" + replicaSetNamePrefix + "arbiter_" + "suit_" + str(suit) + "_server_" + str(server)
 			checkAndCreateDir(dbPath)
 			logFile = logPath + "/" + logFilePrefix + "arbiter_" + "suit_" + str(suit) + "_server_" + str(server)
 			startMongodServer(dbPath, logFile, replicaSetName, port, replicaSetOptions)
+			replicaSet_n_info["members"].append({ "_id": serverCount, "host": getHostname() + ":" + port, "arbiterOnly": True})
+			serverCount += 1
+		replicaSetInfo.append(replicaSet_n_info)
+	return replicaSetInfo
 
 def startShardRouters(configServersList, logPath, logFilePrefix, routerOptions):
 	routers = int(getParameterValue("--routers"))
@@ -157,13 +168,40 @@ def startMongodServer(dbPath, logFile, replicaSetName, port, replicaSetOptions):
 	command += " --port " + port + " --fork " + replicaSetOptions
 	runCommand(command)
 
-#def serializeParams(parameters):
-#        serialParams = ''
-#        for param in parameters:
-#                if (param["value"] != None):
-#                        serialParams += ' ' + param["option"]
-#                        serialParams += ' "' + param["value"] + '"'
-#        return serialParams
+def startAutoConf(replicaSetInfo):
+	autoConfReplicaSets(replicaSetInfo)
+	autoConfRouters(replicaSetInfo)
+
+def autoConfReplicaSets(replicaSetInfo):
+	for replicaSet in replicaSetInfo:
+		client = MongoClient(replicaSet["members"][0]["host"])
+		try:
+			runServerAdminCommand(client, {"replSetInitiate": replicaSet})
+		except ConfigurationError:
+			print("Replica set config error: " + replicaSet)
+		except ConnectionFailure:
+			print("Connecting to replica set Error: " + replicaSet)
+
+
+def autoConfRouters(replicaSetInfo):
+	for replicaSet in replicaSetInfo:
+		client = MongoClient(getHostname())
+		try:
+			members = memberUri(replicaSet)
+			runServerAdminCommand(client, { "addShard": members })
+		except ConfigurationError:
+			print("Shard config error: " + replicaSet)
+		except ConnectionFailure:
+			print("Connecting to addShard error: " + replicaSet)
+
+def memberUri(replicaSet):
+	return replicaSet["_id"] + "/" + replicaSet["members"][0]["host"]
+
+def runServerAdminCommand(client, command):
+	if (isDebugEnabled()):
+		print "db._adminCommand(" + str(command) + ")"
+	else:
+		client.admin.command(command)
 
 def initParameters(argv):
 	for param in parameters:
@@ -183,12 +221,14 @@ def getParameterValue(option):
 			return param["value"]
 
 def runCommand(command):
-	debug = getParameterValue("--debug") != False
-	if (debug):
+	if (isDebugEnabled()):
 		print command
 	else:
 		print "Running: " + command
 		os.system(command)
+
+def isDebugEnabled():
+	return getParameterValue("--debug") != False
 
 def printUsage():
         print "TODO"
