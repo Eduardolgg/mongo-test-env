@@ -31,18 +31,21 @@ defaultPort = 27017
 
 # TODO: Too dark, change
 parameters = [
-	{ "name" : "Number of replica sets in the cluster", "option": "--tReplicaSetNumber", "value": 2, "single": False },
-	{ "name": "Replica Set Size", "option": "--tReplicaSetSize", "value": 2 , "single": False },
-	{ "name": "Replica set name prefix", "option": "--tReplSet", "value": "rpl_" , "comment": "arg is <setname>[/<optionalseedhostlist>]", "single": False },
-	{ "name": "Arviters per repica set", "option": "--tArviters", "value": 1, "single": False },
-	{ "name": "Shards Routers", "option": "--tRouters", "value": 2, "single": False },
-	{ "name": "Config Servers", "option": "--tConfigServers", "value": 3, "single": False },
+	{ "name" : "Number of replica sets in the cluster", "option": "--replicaSetNumber", "value": 2, "single": False },
+	{ "name": "Replica Set Size", "option": "--replicaSetSize", "value": 2 , "single": False },
+	{ "name": "Replica set name prefix", "option": "--replSet", "value": "rpl_" , "comment": "arg is <setname>[/<optionalseedhostlist>]", "single": False },
+	{ "name": "Arviters per repica set", "option": "--arviters", "value": 1, "single": False },
+	{ "name": "Shards Routers", "option": "--routers", "value": 2, "single": False },
+	{ "name": "Config Servers", "option": "--configServers", "value": 3, "single": False },
 	{ "name": "Default connection port", "option": "--port", "value": defaultPort, "comment": "specify port number - 27017 by default", "single": False },
-	{ "name": "Database location", "option": "--tDBRootPath", "value": "./data", "comment": "", "single": False },
-	{ "name": "Op log", "option": "--oplogSize", "value": "50", "comment": "", "single": False },
-	{ "name": "Log path", "option": "--tLogPath", "value": "./logs" , "comment": "", "single": False },
-	{ "name": "Log files prefix", "option": "--tLogFilesPrefix", "value": "log_" , "comment": "", "single": False },
-	{ "name": "Debug option", "option": "--debug", "value": False , "comment": "Does not execute the commands, only shows them", "single": True }
+	{ "name": "Database location", "option": "--dbRootPath", "value": "./data", "comment": "", "single": False },
+	{ "name": "Log path", "option": "--logPath", "value": "./logs" , "comment": "", "single": False },
+	{ "name": "Log files prefix", "option": "--logFilesPrefix", "value": "log_" , "comment": "", "single": False },
+	{ "name": "Debug option", "option": "--debug", "value": False , "comment": "Does not execute the commands, only shows them", "single": True },
+	
+	{ "name": "Config Server options", "option": "--cs-options", "value": "", "comment": "", "single": False },
+	{ "name": "Replica set (mongod) options", "option": "--rs-options", "value": "--smallfiles --oplogSize 50", "comment": "", "single": False },
+	{ "name": "MongoDB Sharded Cluster Query Router (mongos) options", "option": "--sh-options", "value": "", "comment": "", "single": False }
 #	{ "name": "", "option": "", "value": , "comment": ""},
 ]
 
@@ -53,29 +56,30 @@ def main(argv):
 
 	initParameters(argv)
 
-	dbRootPath = getParameterValue("--tDBRootPath")
-	logPath = getParameterValue("--tLogPath")
-	logFilePrefix = getParameterValue("--tLogFilesPrefix")
-	replicaSetNamePrefix = getParameterValue("--tReplSet")
-	replicaSets = getParameterValue("--tReplicaSetNumber")
-	replicaSetSize  = getParameterValue("--tReplicaSetSize")
-	arbiters = getParameterValue("--tArviters")
-	#  = getParameterValue()
+	dbRootPath = getParameterValue("--dbRootPath")
+	logPath = getParameterValue("--logPath")
+	logFilePrefix = getParameterValue("--logFilesPrefix")
+	replicaSetNamePrefix = getParameterValue("--replSet")
+	replicaSets = getParameterValue("--replicaSetNumber")
+	replicaSetSize  = getParameterValue("--replicaSetSize")
+	arbiters = getParameterValue("--arviters")
+	replicaSetOptions = getParameterValue("--rs-options")
+	routerOptions  = getParameterValue("--sh-options")
 	#  = getParameterValue()
 
 	setServerPortCounter()
 	checkAndCreateDBRootDir()
 	checkAndCreateLogRootDir()
 	startConfigServers()
-	startReplicaSets(dbRootPath, logPath, logFilePrefix, replicaSetNamePrefix, replicaSets, replicaSetSize, arbiters)
-	startShardRouters(configServersString, logPath, logFilePrefix)
+	startReplicaSets(dbRootPath, logPath, logFilePrefix, replicaSetNamePrefix, replicaSets, replicaSetSize, arbiters, replicaSetOptions)
+	startShardRouters(configServersString, logPath, logFilePrefix, routerOptions)
 
 def checkAndCreateDBRootDir():
-	rootDirectory = getParameterValue("--tDBRootPath")
+	rootDirectory = getParameterValue("--dbRootPath")
 	checkAndCreateDir(rootDirectory)
 
 def checkAndCreateLogRootDir():
-	rootDirectory = getParameterValue("--tLogPath")
+	rootDirectory = getParameterValue("--logPath")
 	checkAndCreateDir(rootDirectory)
 
 def checkAndCreateDir(path):
@@ -101,22 +105,24 @@ def getHostname():
 def startConfigServers():
 	global configServersString
  
-	numServers = getParameterValue("--tConfigServers")
-	dbPathTemplate = getParameterValue("--tDBRootPath") + "/" + "config_"
-	logPathAndPrefix = getParameterValue("--tLogPath") + "/" + getParameterValue("--tLogFilesPrefix") + "config_"
+	numServers = getParameterValue("--configServers")
+	dbPathTemplate = getParameterValue("--dbRootPath") + "/" + "config_"
+	logPathAndPrefix = getParameterValue("--logPath") + "/" + getParameterValue("--logFilesPrefix") + "config_"
+	configServerOptions = getParameterValue("--cs-options")
+	
 	
 	for i in xrange(1, int(numServers) + 1):
 		dbPath = dbPathTemplate + str(i)
 		checkAndCreateDir(dbPath)
 		newPort = str(getFreePortNumber())
 		configServersString += getHostname() + ":" + newPort + ","
-		command = "mongod --configsvr --dbpath " + dbPath + " --port " + newPort + " --fork --logappend --logpath " + logPathAndPrefix + str(i)
+		command = "mongod --configsvr --dbpath " + dbPath + " --port " + newPort + " --fork --logappend --logpath " + logPathAndPrefix + str(i) + " " + configServerOptions
 		runCommand(command)
 
 	configServersString = configServersString[:len(configServersString)-1]
 
 
-def startReplicaSets(dbRootPath, logPath, logFilePrefix, replicaSetNamePrefix, replicaSets, replicaSetSize, replicaSetArbiters):
+def startReplicaSets(dbRootPath, logPath, logFilePrefix, replicaSetNamePrefix, replicaSets, replicaSetSize, replicaSetArbiters, replicaSetOptions):
 	for suit in xrange(1, int(replicaSets) + 1):
 		replicaSetName = replicaSetNamePrefix + str(suit)
 		#TODO: Refactor
@@ -125,31 +131,30 @@ def startReplicaSets(dbRootPath, logPath, logFilePrefix, replicaSetNamePrefix, r
 			dbPath = dbRootPath + "/" + replicaSetNamePrefix + "replica_" + "suit_" + str(suit) + "_server_" + str(server)
 			checkAndCreateDir(dbPath)
 			logFile = logPath + "/" + logFilePrefix + "replica_" + "suit_" + str(suit) + "_server_" + str(server)
-			startMongodServer(dbPath, logFile, replicaSetName, port)
+			startMongodServer(dbPath, logFile, replicaSetName, port, replicaSetOptions)
 		for server in xrange(1, int(replicaSetArbiters) + 1):
 			port = str(getFreePortNumber())
 			dbPath = dbRootPath + "/" + replicaSetNamePrefix + "arbiter_" + "suit_" + str(suit) + "_server_" + str(server)
 			checkAndCreateDir(dbPath)
 			logFile = logPath + "/" + logFilePrefix + "arbiter_" + "suit_" + str(suit) + "_server_" + str(server)
-			startMongodServer(dbPath, logFile, replicaSetName, port)
+			startMongodServer(dbPath, logFile, replicaSetName, port, replicaSetOptions)
 
-def startShardRouters(configServersList, logPath, logFilePrefix):
-	routers = int(getParameterValue("--tRouters"))
+def startShardRouters(configServersList, logPath, logFilePrefix, routerOptions):
+	routers = int(getParameterValue("--routers"))
 	for i in xrange(1, routers+1):
 		if (i == 1):
 			port = str(defaultPort)
 		else:
 			port = str(getFreePortNumber())
 		logFile = logPath + "/" + logFilePrefix + "router_" + str(i) 
-		command = "mongos --configdb " + configServersList + " --fork --logappend --logpath " + logFile + " --port " + port
+		command = "mongos --configdb " + configServersList + " --fork --logappend --logpath " + logFile + " --port " + port + " " + routerOptions
 		runCommand(command)
 
 
-def startMongodServer(dbPath, logFile, replicaSetName, port):
-	opLogSize = getParameterValue("--oplogSize")
+def startMongodServer(dbPath, logFile, replicaSetName, port, replicaSetOptions):
 	command = "mongod --shardsvr --replSet " + replicaSetName + " --dbpath " + dbPath 
 	command += " --logappend --logpath " + logFile 
-	command += " --port " + port + " --fork --oplogSize " + opLogSize
+	command += " --port " + port + " --fork " + replicaSetOptions
 	runCommand(command)
 
 #def serializeParams(parameters):
