@@ -66,6 +66,7 @@ def main(argv):
 	arbiters = getParameterValue("--arviters")
 	replicaSetOptions = getParameterValue("--rs-options")
 	routerOptions  = getParameterValue("--sh-options")
+	debug = getParameterValue("--debug")
 	#  = getParameterValue()
 
 	setServerPortCounter()
@@ -75,7 +76,8 @@ def main(argv):
 	replicaSetInfo = startReplicaSets(dbRootPath, logPath, logFilePrefix, replicaSetNamePrefix, replicaSets, replicaSetSize, arbiters, replicaSetOptions)
 	startShardRouters(configServersString, logPath, logFilePrefix, routerOptions)
 
-	startAutoConf(replicaSetInfo)
+	if (not debug):
+		startAutoConf(replicaSetInfo)
 
 def checkAndCreateDBRootDir():
 	rootDirectory = getParameterValue("--dbRootPath")
