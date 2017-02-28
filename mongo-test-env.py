@@ -32,12 +32,14 @@ defaultPort = 27017
 
 # TODO: Too dark, change
 parameters = [
-	{ "name" : "Number of replica sets in the cluster", "option": "--replicaSetNumber", "value": 2, "single": False },
+	{ "name": "Number of replica sets in the cluster", "option": "--replicaSetNumber", "value": 2, "single": False },
 	{ "name": "Replica Set Size", "option": "--replicaSetSize", "value": 2 , "single": False },
 	{ "name": "Replica set name prefix", "option": "--replSet", "value": "rpl_" , "comment": "arg is <setname>[/<optionalseedhostlist>]", "single": False },
 	{ "name": "Arviters per repica set", "option": "--arviters", "value": 1, "single": False },
 	{ "name": "Shards Routers", "option": "--routers", "value": 2, "single": False },
 	{ "name": "Config Servers", "option": "--configServers", "value": 3, "single": False },
+	{ "name": "Force Config Servers", "option": "--forceConfigServers", "value": False, "comment":"TODO", "single": True },
+	{ "name": "Debug option", "option": "--debug", "value": False , "comment": "Does not execute the commands, only shows them", "single": True },
 	{ "name": "Default connection port", "option": "--port", "value": defaultPort, "comment": "specify port number - 27017 by default", "single": False },
 	{ "name": "Database location", "option": "--dbRootPath", "value": "./data", "comment": "", "single": False },
 	{ "name": "Log path", "option": "--logPath", "value": "./logs" , "comment": "", "single": False },
@@ -62,22 +64,44 @@ def main(argv):
 	logFilePrefix = getParameterValue("--logFilesPrefix")
 	replicaSetNamePrefix = getParameterValue("--replSet")
 	replicaSets = getParameterValue("--replicaSetNumber")
-	replicaSetSize  = getParameterValue("--replicaSetSize")
+	replicaSetSize  = int(getParameterValue("--replicaSetSize"))
 	arbiters = getParameterValue("--arviters")
 	replicaSetOptions = getParameterValue("--rs-options")
 	routerOptions  = getParameterValue("--sh-options")
-	debug = getParameterValue("--debug")
 	#  = getParameterValue()
-
 	setServerPortCounter()
 	checkAndCreateDBRootDir()
 	checkAndCreateLogRootDir()
-	startConfigServers()
+	if (needConfigServers()):
+		startConfigServers()
+	if (not isShardEnviroment() and replicaSetSize > 1):
+		printWarning("Two replicaset in an environment without shards is not necessary")
 	replicaSetInfo = startReplicaSets(dbRootPath, logPath, logFilePrefix, replicaSetNamePrefix, replicaSets, replicaSetSize, arbiters, replicaSetOptions)
-	startShardRouters(configServersString, logPath, logFilePrefix, routerOptions)
+	if (isShardEnviroment()):
+		startShardRouters(configServersString, logPath, logFilePrefix, routerOptions)
 
-	if (not debug):
+	if (not isDebugEnabled()):
 		startAutoConf(replicaSetInfo)
+
+def needConfigServers():
+	configServers = int(getParameterValue("--configServers"))
+
+	if (isShardEnviroment and configServers < 1):
+		printError("You start and shard enviroment without config servers")
+		exit(1)
+
+	if (forceConfigServers()):
+		return True
+
+	if (not isShardEnviroment and configServers > 0):
+		printWarning("You don't need config servers, skipping. If you want config servers try using --forceConfigServers parameter")
+		return False
+
+	return isShardEnviroment()
+
+def isShardEnviroment():
+	routers = int(getParameterValue("--routers"))
+	return routers > 0
 
 def checkAndCreateDBRootDir():
 	rootDirectory = getParameterValue("--dbRootPath")
@@ -91,11 +115,13 @@ def checkAndCreateDir(path):
 	if (not os.path.exists(path)):
 		os.makedirs(path)
 	
-
 def setServerPortCounter():
 	global serverPortCounter
+	routers = int(getParameterValue("--routers"))
 
 	serverPortCounter = int(getParameterValue("--port"))
+	if (routers < 1):
+		serverPortCounter -= 1
 
 def getFreePortNumber():
 	# TODO check port free
@@ -231,6 +257,18 @@ def runCommand(command):
 
 def isDebugEnabled():
 	return getParameterValue("--debug") != False
+
+def forceConfigServers():
+	return getParameterValue("--forceConfigServers") != False
+
+def printError(msg):
+	print "[ERR] " + msg
+
+def printInfo(msg):
+	print "[INF] " + msg
+
+def printWarning(msg):
+	print "[WAR]" + msg
 
 def printUsage():
         print "TODO"
