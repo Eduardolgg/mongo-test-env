@@ -32,13 +32,13 @@ defaultPort = 27017
 
 # TODO: Too dark, change
 parameters = [
-	{ "name": "Number of replica sets in the cluster", "option": "--replicaSetNumber", "value": 2, "single": False },
-	{ "name": "Replica Set Size", "option": "--replicaSetSize", "value": 2 , "single": False },
+	{ "name": "Number of replica sets in the cluster", "option": "--replicaSetNumber", "value": 2, "comment": "", "single": False },
+	{ "name": "Replica Set Size", "option": "--replicaSetSize", "value": 2, "comment": "", "single": False },
 	{ "name": "Replica set name prefix", "option": "--replSet", "value": "rpl_" , "comment": "arg is <setname>[/<optionalseedhostlist>]", "single": False },
-	{ "name": "Arviters per repica set", "option": "--arviters", "value": 1, "single": False },
-	{ "name": "Shards Routers", "option": "--routers", "value": 2, "single": False },
-	{ "name": "Config Servers", "option": "--configServers", "value": 3, "single": False },
-	{ "name": "Force Config Servers", "option": "--forceConfigServers", "value": False, "comment":"TODO", "single": True },
+	{ "name": "Arviters per repica set", "option": "--arviters", "value": 1, "comment": "", "single": False },
+	{ "name": "Shards Routers", "option": "--routers", "value": 2, "comment": "", "single": False },
+	{ "name": "Config Servers", "option": "--configServers", "value": 3, "comment": "", "single": False },
+	{ "name": "Force Config Servers", "option": "--forceConfigServers", "value": False, "comment":"", "single": True },
 	{ "name": "Debug option", "option": "--debug", "value": False , "comment": "Does not execute the commands, only shows them", "single": True },
 	{ "name": "Default connection port", "option": "--port", "value": defaultPort, "comment": "specify port number - 27017 by default", "single": False },
 	{ "name": "Database location", "option": "--dbRootPath", "value": "./data", "comment": "", "single": False },
@@ -271,11 +271,24 @@ def printWarning(msg):
 	print "[WAR]" + msg
 
 def printUsage():
-        print "TODO"
-        print ""
-        print "Usage: mongo-test-env.py [options] "
-        print ""
+	firstCollSize = 20
+
+	print ""
+	print "Usage: mongo-test-env.py [options] "
+	print ""
+	for param in parameters:
+		print("  %(option)s %(name)s" % {
+			'option': param["option"].ljust(firstCollSize), 
+			'name': param["name"]
+		})
+		print("  %(space)s %(comment)s" % {
+			'space': "".rjust(firstCollSize), 
+			'comment': param["comment"]
+		})
 
 if __name__ == "__main__":
-        main(sys.argv[1:])
+	if (len(sys.argv) > 1 and sys.argv[1] == "-h"):
+		printUsage()
+	else:
+		main(sys.argv[1:])
 
